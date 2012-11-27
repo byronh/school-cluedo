@@ -35,48 +35,71 @@ room(study).
 :- dynamic player_character/1.
 :- dynamic whose_turn/1.
 
+:- dynamic eliminated/1.
+
 % Read in the number of players
-clue :- abolish(num_players/1),
-        write_ln('Enter the number of players:'),
-        read(X),
-        assert(num_players(X)),
-        set_player_character.
+clue :-
+    write_ln('Enter the number of players:'),
+    read(X),
+    assert(num_players(X)),
+    set_player_character.
 
-set_player_character :- abolish(player_character/1),
-                        write_ln('Which character piece are you controlling?'),
-                        read(X),
-                        (character(X) -> assert(player_character(X));
-                         write_ln('Invalid suspect.'), set_player_character),
-                        set_turn.
+set_player_character :-
+    write_ln('Which character piece are you controlling?'),
+    read(X),
+    (character(X) -> assert(player_character(X));
+     write_ln('Invalid suspect.'), set_player_character),
+    starting_cards.
 
-%starting_cards :- write_ln('Enter your starting cards'),
+starting_cards :-
+    write_ln('Enter your starting cards. When you are finished type "done."'),
+    read(X),
+    (X = done -> set_turn;
+     character(X) -> assert(eliminated(X)), starting_cards;
+     weapon(X) -> assert(eliminated(X)), starting_cards;
+     room(X) -> assert(eliminated(X)), starting_cards;
+     write_ln('Invalid card.'), starting_cards).
 
-
-set_turn :- write_ln('Whose turn is it?'),
-            read(X),
-            (character(X) -> assert(whose_turn(X));
-             write_ln('Invalid player.'), set_turn),
-            (whose_turn(X),player_character(X),should_accuse -> write_ln('You should make an accusation!'),
-                character(C),not(eliminated(C)),write_ln(C),
-                weapon(W),not(eliminated(W)),write_ln(W),
-                room(R),not(eliminated(R)),write_ln(R),nl;
-             record_event).
+set_turn :-
+    write_ln('Whose turn is it?'),
+    read(X),
+    (character(X) -> assert(whose_turn(X));
+     write_ln('Invalid player.'), set_turn),
+    (whose_turn(X),player_character(X),should_accuse -> write_ln('You should make an accusation!'),
+        remaining_character(C),write_ln(C),
+        remaining_weapon(W),write_ln(W),
+        remaining_room(R),write_ln(R),nl;
+     record_event).
 
 % Record a suggestion or accusation
-record_event :- write_ln('What action was taken? Input s for suggestion, a for accusation:'),
-                read(X),
-                (X = s -> write_ln('Suggestion!');
-                 X = a -> write_ln('Handle accusation here...'), set_turn;
-                 write_ln('Invalid action.'), record_event).
+record_event :-
+    write_ln('Input s for suggestion, a for accusation, l for list of cards not yet eliminated:'),
+    read(X),
+    (X = s -> write_ln('Suggestion!');
+     X = a -> write_ln('Handle accusation here...'), set_turn;
+     X = l -> show_not_eliminated, record_event;
+     write_ln('Invalid action.'), record_event).
+
+show_not_eliminated :-
+    write_ln('Remaining possible suspects:'),
+    forall(remaining_character(C), write_ln(C)),nl,
+    write_ln('Remaining possible weapons:'),
+    forall(remaining_weapon(W), write_ln(W)),nl,
+    write_ln('Remaining possible rooms:'),
+    forall(remaining_room(R), write_ln(R)),nl.
+
+remaining_character(C) :- character(C), not(eliminated(C)).
+remaining_weapon(W) :- weapon(W), not(eliminated(W)).
+remaining_room(R) :- room(R), not(eliminated(R)).
 
 % You've seen a card, we know it was not involved in the crime
-:- dynamic eliminated/1.
 shown_card(X) :- assert(eliminated(X)).
 
 % True if only one combination remains
-should_accuse :- count_solutions((character(X),not(eliminated(X))),Y), Y = 1,
-                 count_solutions((weapon(X),not(eliminated(X))),Y), Y = 1,
-                 count_solutions((room(X),not(eliminated(X))),Y), Y = 1.
+should_accuse :-
+    count_solutions(remaining_character(X),Y), Y = 1,
+    count_solutions(remaining_weapon(X),Y), Y = 1,
+    count_solutions(remaining_room(X),Y), Y = 1.
 
 % Helpers
 
