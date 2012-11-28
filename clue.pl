@@ -14,25 +14,25 @@ clue :- input_num_players.  % Top level procedure
 
 character(mustard).
 character(scarlet).
-%character(plum).
-%character(green).
-%character(white).
-%character(peacock).
+character(plum).
+character(green).
+character(white).
+character(peacock).
 
-%weapon(rope).
-%weapon(pipe).
-%weapon(knife).
-%weapon(wrench).
+weapon(rope).
+weapon(pipe).
+weapon(knife).
+weapon(wrench).
 weapon(candlestick).
 weapon(revolver).
 
-%room(kitchen).
-%room(ballroom).
-%room(conservatory).
-%room(dining).
-%room(billiard).
-%room(library).
-%room(lounge).
+room(kitchen).
+room(ballroom).
+room(conservatory).
+room(dining).
+room(billiard).
+room(library).
+room(lounge).
 room(hall).
 room(study).
 
