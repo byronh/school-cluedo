@@ -98,7 +98,6 @@ input_player_num :-
 
 % Input the cards you started with
 input_starting_cards(Player) :-
-    start_with_no_cards(Player),
     write_ln('Enter a card you started with. If you are finished type "done."'),
     read(Card),
     (
@@ -107,41 +106,18 @@ input_starting_cards(Player) :-
         write_ln('Invalid card, please try again.'),input_starting_cards(Player)
     ).
 
-% Initially marks all cards as cards we do not have. Inputting the starting cards will override this
-start_with_no_cards(Player) :-
-    assert(cardstatus(mustard,Player,-1)),
-    assert(cardstatus(scarlet,Player,-1)),
-    %assert(cardstatus(plum,Player,-1)),
-    %assert(cardstatus(green,Player,-1)),
-    %assert(cardstatus(white,Player,-1)),
-    %assert(cardstatus(peacock,Player,-1)),
-
-    assert(cardstatus(rope,Player,-1)),
-    assert(cardstatus(pipe,Player,-1)),
-    %assert(cardstatus(knife,Player,-1)),
-    %assert(cardstatus(wrench,Player,-1)),
-    %assert(cardstatus(candlestick,Player,-1)),
-    %assert(cardstatus(revolver,Player,-1)),
-
-    assert(cardstatus(kitchen,Player,-1)),
-    assert(cardstatus(ballroom,Player,-1)).
-    %assert(cardstatus(conservatory,Player,-1)),
-    %assert(cardstatus(dining,Player,-1)),
-    %assert(cardstatus(billiard,Player,-1)),
-    %assert(cardstatus(library,Player,-1)),
-    %assert(cardstatus(lounge,Player,-1)),
-    %assert(cardstatus(hall,Player,-1)),
-    %assert(cardstatus(study,Player,-1)).
-
 
 % MAIN LOOP
 
 % Main menu - record knowledge we have acquired at any point in the game
 record_event :-
+    % Check first if there's enough information to make an accusation
     (
         should_accuse ->
             write_ln('You should make an accusation!'),nl,
-            listing(solution(_)),nl,nl,nl;
+            character(C),solution(C),write_ln(C),
+            weapon(W),solution(W),write_ln(W),
+            room(R),solution(R),write_ln(R),nl,nl;
         true
     ),
     write_ln('What would you like to do? (Enter the number of the choice you want)'),
@@ -336,17 +312,25 @@ should_accuse :-
     count_solutions(
         (
             valid_card(Card),
-            no_one_has(Card),
+            player_num(PlayerNum),
+            num_players(NumPlayers),
+            no_one_has(Card,PlayerNum,NumPlayers),
             assert(solution(Card))
         ),
         Count
     ),
     Count = 3.
 
-no_one_has(Card) :-
-    num_players(NumPlayers),
-    count_solutions(cardstatus(Card,_,-1),Count),
-    Count = NumPlayers.
+% new
+no_one_has(_,_,0).
+no_one_has(Card,Player,PlayerNum) :-
+    PlayerNum > 0,
+    (
+        PlayerNum = Player -> not(cardstatus(Card,PlayerNum,0));
+        cardstatus(Card,PlayerNum,-1)
+    ),
+    NewPlayerNum is PlayerNum - 1,
+    no_one_has(Card,Player,NewPlayerNum).
 
 
 % HELPER FUNCTIONS
