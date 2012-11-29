@@ -121,6 +121,15 @@ record_event :-
         best_suggest(Card) ->
             write_ln('Next turn, you should make a suggestion containing the following:'),
             write_ln(Card),
+            (
+                character(Card) ->
+                    ((get_known_weapon(Weapon),write_ln(Weapon));(get_known_room(Room),write_ln(Room));true);
+                weapon(Card) ->
+                    ((get_known_character(Character),write_ln(Character));(get_known_room(Room),write_ln(Room));true);
+                room(Card) ->
+                    ((get_known_character(Character),write_ln(Character));(get_known_weapon(Weapon),write_ln(Weapon));true);
+                true
+            ),
             nl,nl;
         true
     ),
@@ -211,7 +220,7 @@ check_for_0s(Player, Card) :-
 %if so it can be deduced that they must have this card, marks it as 0
 check_for_alone(Player, Card) :- retract(cardstatus(Card,Player,X)), X>0,
 	(	
-		not(cardstatus(_,Player,Y)),Y>0 -> assert(cardstatus(Card,Player,0));
+		not(cardstatus(_,Player,Y)),Y>0 -> asserta(cardstatus(Card,Player,0));
 		true
 	).
 	
@@ -327,7 +336,7 @@ input_card(_,_,0).
 input_card(Card,Player,PlayerNum) :-
     PlayerNum > 0,
     retractall(cardstatus(Card,Player,_)),
-    assert(cardstatus(Card,Player,0)),
+    asserta(cardstatus(Card,Player,0)),
     (
         not(PlayerNum = Player) ->
             retractall(cardstatus(Card,PlayerNum,_)),
@@ -400,6 +409,13 @@ best_suggest_by_count(Card,Count) :-
 %   3 because a suggestion contains 3 cards
 best_suggest(Card) :-
     (best_suggest_by_count(Card,2);best_suggest_by_count(Card,3)),!.
+
+% Gets a known card (status = 0)
+% It doesn't really matter which one, but in order to not always present the same cards, we used asserta
+% instead of assert in some places earlier in the program so the "top" predicate changes as suggestions are recorded
+get_known_character(Card) :- character(Card),cardstatus(Card,_,0),!.
+get_known_weapon(Card) :- weapon(Card),cardstatus(Card,_,0),!.
+get_known_room(Card) :- room(Card),cardstatus(Card,_,0),!.
 
 
 % HELPER FUNCTIONS
