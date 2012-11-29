@@ -13,27 +13,49 @@ clue :- input_num_players.  % Top level procedure
 
 character(mustard).
 character(scarlet).
-%character(plum).
-%character(green).
-%character(white).
-%character(peacock).
+character(plum).
+character(green).
+character(white).
+character(peacock).
 
 weapon(rope).
 weapon(pipe).
 weapon(knife).
-%weapon(wrench).
-%weapon(candlestick).
-%weapon(revolver).
+weapon(wrench).
+weapon(candlestick).
+weapon(revolver).
 
 room(kitchen).
 room(ballroom).
-%room(conservatory).
-%room(dining).
-%room(billiard).
-%room(library).
-%room(lounge).
-%room(hall).
-%room(study).
+room(conservatory).
+room(dining).
+room(billiard).
+room(library).
+room(lounge).
+room(hall).
+room(study).
+
+card(mustard).
+card(scarlet).
+card(plum).
+card(green).
+card(white).
+card(peacock).
+card(rope).
+card(pipe).
+card(knife).
+card(wrench).
+card(candlestick).
+card(revolver).
+card(kitchen).
+card(ballcard).
+card(conservatory).
+card(dining).
+card(billiard).
+card(library).
+card(lounge).
+card(hall).
+card(study).
 
 
 % DYNAMIC RULES
@@ -61,6 +83,9 @@ room(ballroom).
 
 % The solutions to the crime, if we are completely sure about it
 :- dynamic solution/1.
+
+% Tracks the cards in my hand
+:- dynamic in_hand/1.
 
 
 % GAME SETUP
@@ -102,11 +127,15 @@ input_starting_cards(Player) :-
     read(Card),
     (
         Card = done -> nl, record_event;
-        valid_card(Card) -> num_players(NumPlayers),input_card(Card,Player,NumPlayers),input_starting_cards(Player);
+        valid_card(Card) -> num_players(NumPlayers),assert(in_hand(Card)),input_card(Card,Player,NumPlayers),input_starting_cards(Player);
         write_ln('Invalid card, please try again.'),input_starting_cards(Player)
     ).
 
-
+%set_remaining_cardstatus(Player) :- weapon(X), character(Y), room(Z),
+%	(
+%	not(in_hand(X))->assert(cardstatus(Player,
+	
+	
 % MAIN LOOP
 
 % Main menu - record knowledge we have acquired at any point in the game
@@ -171,7 +200,7 @@ record_suggestion_me :-
         record_no_one_else_showed_card(Player,Suspect,NumPlayers),
         record_no_one_else_showed_card(Player,Weapon,NumPlayers),
         record_no_one_else_showed_card(Player,Room,NumPlayers),
-        nl, record_event
+        check_base(NumPlayers), nl, record_event
     ).
 
 record_shown_card :-
@@ -181,10 +210,31 @@ record_shown_card :-
     read(OtherPlayer),
     (
         valid_card(Card),is_another_player(OtherPlayer) ->
-            num_players(NumPlayers),input_card(Card,OtherPlayer,NumPlayers),nl,record_event;
+            num_players(NumPlayers),input_card(Card,OtherPlayer,NumPlayers),check_base(NumPlayers),nl,record_event;
         write_ln('Invalid card or player, please try again.'),nl,record_shown_card
     ).
 
+check_base(0).	
+check_base(NumPlayers) :- player_num(Player), card(Card), write_ln('bla'),
+		NumPlayers >0,
+		(
+		cardstatus(NumPlayers,Card,X),X>0-> check_for_0s(Player, Card), check_for_alone(Player, Card);
+		true
+		),
+		NewNumPlayers is NumPlayers-1, check_base(NewNumPlayers).
+
+check_for_0s(Player, Card) :- write_ln('blah'),
+	(
+		cardstatus(Card,_,0)->retractall(cardstatus(Card,Player,_)),assert(cardstatus(Card,Player,-1));
+		true
+	).
+
+check_for_alone(Player, Card) :- write_ln('blahh'),retract(cardstatus(Card,Player,X)), X>0,
+	(	
+		not(cardstatus(_,Player,Y)),Y>0 -> assert(cardstatus(Card,Player,0));
+		true
+	).
+	
 % Records the results of the suggestion of another player
 record_suggestion_other :-
     write_ln('Which player number made the suggestion?'),
@@ -219,21 +269,22 @@ record_suggestion_other :-
            record_no_one_else_showed_card(Player,Suspect,NumPlayers),
            record_no_one_else_showed_card(Player,Weapon,NumPlayers),
            record_no_one_else_showed_card(Player,Room,NumPlayers),
-           nl, record_event;
+           check_base(NumPlayers), nl, record_event;
           write_ln('Invalid input, please reenter suggestion'), nl, record_suggestion_other
-          
+
         ).
 
-% If the suggestion of an opponent causes another player to show them a card		
+% If the suggestion of an opponent causes another player to show them a card
 check_shown(Player, Suspect, Weapon, Room) :-
         write_ln('Which player showed their card?'),
         read(PlayerShowing),
         (
-        is_another_player(PlayerShowing) -> record_shown_card_other(PlayerShowing,[Suspect,Weapon,Room]), nl, record_event;
+        is_another_player(PlayerShowing) -> record_shown_card_other(PlayerShowing,[Suspect,Weapon,Room]), num_players(NumPlayers), check_base(NumPlayers), nl, record_event;
+		player_num(PlayerShowing)-> n1,record_event;
                 write_ln('Invalid player entered, please try again.'), nl, check_shown(Player, Suspect, Weapon, Room)
         ).
 
-% Records the results of another player showing an opponent a card		
+% Records the results of another player showing an opponent a card
 record_shown_card_other(_,[]).
 record_shown_card_other(Player,[Card|T]) :- inc_cards_shown(Player),
     (
@@ -245,7 +296,7 @@ record_shown_card_other(Player,[Card|T]) :- inc_cards_shown(Player),
         true
     ),
     record_shown_card_other(Player,T).
-    
+
 % increments the total number of shown cards for a particular player
 inc_cards_shown(Player) :-
   cards_shown(Player, X),
@@ -268,7 +319,7 @@ show_knowledge_base :-
 input_card(_,_,0).
 input_card(Card,Player,PlayerNum) :-
     PlayerNum > 0,
-    retractall(cardstatus(Card,Player,_)),
+    retractall(cardstatus(Card,PlayerNum,_)),
     assert(cardstatus(Card,Player,0)),
     (
         not(PlayerNum = Player) ->
@@ -318,7 +369,7 @@ should_accuse :-
     ),
     Count = 3.
 
-% Check if a card has been deduced (no player can possibly have it)
+% new
 no_one_has(_,_,0).
 no_one_has(Card,Player,PlayerNum) :-
     PlayerNum > 0,
