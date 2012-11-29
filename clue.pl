@@ -13,27 +13,27 @@ clue :- input_num_players.  % Top level procedure
 
 character(mustard).
 character(scarlet).
-character(plum).
-character(green).
-character(white).
-character(peacock).
+%character(plum).
+%character(green).
+%character(white).
+%character(peacock).
 
 weapon(rope).
 weapon(pipe).
-weapon(knife).
-weapon(wrench).
-weapon(candlestick).
-weapon(revolver).
+%weapon(knife).
+%weapon(wrench).
+%weapon(candlestick).
+%weapon(revolver).
 
 room(kitchen).
 room(ballroom).
-room(conservatory).
-room(dining).
-room(billiard).
-room(library).
-room(lounge).
-room(hall).
-room(study).
+%room(conservatory).
+%room(dining).
+%room(billiard).
+%room(library).
+%room(lounge).
+%room(hall).
+%room(study).
 
 
 % DYNAMIC RULES
@@ -98,6 +98,7 @@ input_player_num :-
 
 % Input the cards you started with
 input_starting_cards(Player) :-
+    start_with_no_cards(Player),
     write_ln('Enter a card you started with. If you are finished type "done."'),
     read(Card),
     (
@@ -106,30 +107,56 @@ input_starting_cards(Player) :-
         write_ln('Invalid card, please try again.'),input_starting_cards(Player)
     ).
 
+% Initially marks all cards as cards we do not have. Inputting the starting cards will override this
+start_with_no_cards(Player) :-
+    assert(cardstatus(mustard,Player,-1)),
+    assert(cardstatus(scarlet,Player,-1)),
+    %assert(cardstatus(plum,Player,-1)),
+    %assert(cardstatus(green,Player,-1)),
+    %assert(cardstatus(white,Player,-1)),
+    %assert(cardstatus(peacock,Player,-1)),
+
+    assert(cardstatus(rope,Player,-1)),
+    assert(cardstatus(pipe,Player,-1)),
+    %assert(cardstatus(knife,Player,-1)),
+    %assert(cardstatus(wrench,Player,-1)),
+    %assert(cardstatus(candlestick,Player,-1)),
+    %assert(cardstatus(revolver,Player,-1)),
+
+    assert(cardstatus(kitchen,Player,-1)),
+    assert(cardstatus(ballroom,Player,-1)).
+    %assert(cardstatus(conservatory,Player,-1)),
+    %assert(cardstatus(dining,Player,-1)),
+    %assert(cardstatus(billiard,Player,-1)),
+    %assert(cardstatus(library,Player,-1)),
+    %assert(cardstatus(lounge,Player,-1)),
+    %assert(cardstatus(hall,Player,-1)),
+    %assert(cardstatus(study,Player,-1)).
+
 
 % MAIN LOOP
 
-% Record knowledge we have acquired at any point in the game
-% TODO:
-% record an accusation
-% receive recommended action
-% TODO: Automatically recommend to make an accusation rather than having to go into the menu choice
+% Main menu - record knowledge we have acquired at any point in the game
 record_event :-
+    (
+        should_accuse ->
+            write_ln('You should make an accusation!'),nl,
+            listing(solution(_)),nl,nl,nl;
+        true
+    ),
     write_ln('What would you like to do? (Enter the number of the choice you want)'),
     write_ln('1. Change what room I am in'),
     write_ln('2. Record a suggestion made by me'),
     write_ln('3. Record a suggestion made by another player'),
-    write_ln('4. Receive a recommendation on what action to take'),
-    write_ln('5. Advanced: View knowledge base'),
-    write_ln('6. Exit'),
+    write_ln('4. Advanced: View knowledge base'),
+    write_ln('5. Exit'),
     read(Choice),
     (
         Choice = 1 -> nl,change_room;
         Choice = 2 -> nl,record_suggestion_me;
         Choice = 3 -> nl,record_suggestion_other;
-        Choice = 4 -> nl,receive_recommendation;
-        Choice = 5 -> nl,show_knowledge_base;
-        Choice = 6 -> clear,halt;
+        Choice = 4 -> nl,show_knowledge_base;
+        Choice = 5 -> clear,halt;
         write_ln('Invalid action, please try again.'),nl,record_event
     ).
 
@@ -250,15 +277,7 @@ inc_cards_shown(Player) :-
   retract(cards_shown(Player,X)),
   assert(cards_shown(Player,Y)).
 
-receive_recommendation :-
-    (
-        should_accuse ->
-            write_ln('You should make an accusation!'),nl,
-            listing(solution(_)),nl,nl,
-            record_event;
-        write_ln('You don\'t have enough information to make an accusation yet.'),nl,record_event
-    ).
-
+% Spits out the whole knowledge base
 show_knowledge_base :-
     write_ln('Knowledge base:'),
     listing(cardstatus),
@@ -274,9 +293,11 @@ input_card(_,_,0).
 input_card(Card,Player,PlayerNum) :-
     PlayerNum > 0,
     retractall(cardstatus(Card,Player,0)),
+    retractall(cardstatus(Card,Player,-1)),
     assert(cardstatus(Card,Player,0)),
     (
         not(PlayerNum = Player) ->
+            retractall(cardstatus(Card,PlayerNum,0)),
             retractall(cardstatus(Card,PlayerNum,-1)),
             assert(cardstatus(Card,PlayerNum,-1));
         true
@@ -292,6 +313,7 @@ record_no_one_else_showed_card(Suggester,Card,PlayerNum) :-
     PlayerNum > 0,
     (
         not(PlayerNum = Suggester) ->
+            retractall(cardstatus(Card,PlayerNum,0)),
             retractall(cardstatus(Card,PlayerNum,-1)),
             assert(cardstatus(Card,PlayerNum,-1));
         true
