@@ -14,27 +14,27 @@ clue :- input_num_players.  % Top level procedure
 
 character(mustard).
 character(scarlet).
-character(plum).
-character(green).
-character(white).
-character(peacock).
+%character(plum).
+%character(green).
+%character(white).
+%character(peacock).
 
 weapon(rope).
 weapon(pipe).
 weapon(knife).
-weapon(wrench).
-weapon(candlestick).
-weapon(revolver).
+%weapon(wrench).
+%weapon(candlestick).
+%weapon(revolver).
 
 room(kitchen).
 room(ballroom).
-room(conservatory).
-room(dining).
-room(billiard).
-room(library).
-room(lounge).
-room(hall).
-room(study).
+%room(conservatory).
+%room(dining).
+%room(billiard).
+%room(library).
+%room(lounge).
+%room(hall).
+%room(study).
 
 
 % DYNAMIC RULES
@@ -65,6 +65,7 @@ input_num_players :-
     clear,
     write_ln('Hello! I am your personal Clue Assistant.'),
     nl,
+    retractall(num_players(_)),
     write_ln('How many players are there?'),
     read(NumPlayers),
     assert(num_players(NumPlayers)),
@@ -82,6 +83,7 @@ input_players(I) :-
 
 % Input which player number you are
 input_player_num :-
+    retractall(player_num(_)),
     write_ln('What player number are you?'),
     read(PlayerNum),
     assert(player_num(PlayerNum)),
@@ -105,21 +107,23 @@ input_starting_cards(Player) :-
 % TODO:
 % record an accusation
 % receive recommended action
-% view list of eliminated cards
+% TODO: Automatically recommend to make an accusation rather than having to go into the menu choice
 record_event :-
     write_ln('What would you like to do? (Enter the number of the choice you want)'),
     write_ln('1. Change what room I am in'),
     write_ln('2. Record a suggestion made by me'),
     write_ln('3. Record a suggestion made by another player'),
     write_ln('4. Receive a recommendation on what action to take'),
-    write_ln('5. Exit'),
+    write_ln('5. Advanced: View knowledge base'),
+    write_ln('6. Exit'),
     read(Choice),
     (
         Choice = 1 -> nl,change_room;
         Choice = 2 -> nl,record_suggestion_me;
         Choice = 3 -> nl,record_suggestion_other;
         Choice = 4 -> nl,receive_recommendation;
-        Choice = 5 -> clear,halt;
+        Choice = 5 -> nl,show_knowledge_base;
+        Choice = 6 -> clear,halt;
         write_ln('Invalid action, please try again.'),nl,record_event
     ).
 
@@ -154,7 +158,6 @@ record_suggestion_me :-
     read(Shown),
     (
         Shown = y -> record_shown_card;
-        % TODO: make it so that the loop doesn't exit after saying "n."
         player_location(Room),record_no_one_has_cards([Suspect,Weapon,Room]),nl,record_event
     ).
 
@@ -168,8 +171,9 @@ record_shown_card :-
         write_ln('Invalid card or player, please try again.'),nl,record_shown_card
     ).
 
+record_no_one_has_cards([]).
 record_no_one_has_cards([H|T]) :-
-    is_another_player(Player),
+    not(cardstatus(H,Player,0)),
     retractall(cardstatus(H,Player,-1)), % remove duplicates
     assert(cardstatus(H,Player,-1)),
     record_no_one_has_cards(T).
@@ -194,12 +198,20 @@ receive_recommendation :-
         write_ln('I do not have any recommendation at this time.'),nl,record_event
     ).
 
+% TODO: Make this easier to read by people who don't know prolog
+show_knowledge_base :-
+    write_ln('Knowledge base:'),
+    listing(cardstatus),
+    record_event.
+
 
 % CLUE FUNCTIONS
 
 % Record a card that you have actually seen
 % TODO: Also add cardstatus's with -1 to all the other players since they can't possibly have this card
-input_card(Card,Player) :- assert(cardstatus(Card,Player,0)).
+input_card(Card,Player) :-
+    assert(cardstatus(Card,Player,0)),
+    
 
 % Determines if a card is valid character, weapon, or room
 valid_card(Card) :- character(Card);weapon(Card);room(Card).
@@ -207,9 +219,9 @@ valid_card(Card) :- character(Card);weapon(Card);room(Card).
 % Determines if a player is a valid player and not me
 is_another_player(OtherPlayer) :- player(OtherPlayer),player_num(Player),not(Player = OtherPlayer).
 
-% Fallback predicate for when every single card has been revealed to you and using no other information
-% Hopefully this case won't be needed
-should_accuse :- count_solutions(cardstatus(_,_,0),Count),Count = 3.
+% Whether or not you should accuse, either if every card has been shown to you or if you have deduced by elimination
+should_accuse :-
+    count_solutions(cardstatus(_,_,0),Count),Count = 3.
 
 
 % HELPER FUNCTIONS
@@ -220,4 +232,6 @@ count_solutions(P,Count) :- findall(1,P,L),length(L,Count).
 % Clears the screen - borrowed from http://osdir.com/ml/lang.swi-prolog.general/2006-12/msg00079.html
 clear :- format('~c~s~c~s',[0x1b,"[H",0x1b,"[2J"]).
 
+% Logical exclusive-or
+xor(P1, P2) :- (P1,not(P2);P2,not(P1)),!.
 
