@@ -1,4 +1,3 @@
-
 % Ian Lavery #36506095 t2i7
 % Byron Henze #66809088 l6f7
 % CS 312 Project 2 - Clue
@@ -14,27 +13,27 @@ clue :- input_num_players.  % Top level procedure
 
 character(mustard).
 character(scarlet).
-%character(plum).
-%character(green).
-%character(white).
-%character(peacock).
+character(plum).
+character(green).
+character(white).
+character(peacock).
 
 weapon(rope).
 weapon(pipe).
 weapon(knife).
-%weapon(wrench).
-%weapon(candlestick).
-%weapon(revolver).
+weapon(wrench).
+weapon(candlestick).
+weapon(revolver).
 
 room(kitchen).
 room(ballroom).
-%room(conservatory).
-%room(dining).
-%room(billiard).
-%room(library).
-%room(lounge).
-%room(hall).
-%room(study).
+room(conservatory).
+room(dining).
+room(billiard).
+room(library).
+room(lounge).
+room(hall).
+room(study).
 
 
 % DYNAMIC RULES
@@ -57,6 +56,8 @@ room(ballroom).
 % 3. Status: -1 if player is known not to have that card, 0 if they have it for sure, and a positive integer otherwise
 :- dynamic cardstatus/3.
 
+% Records how many times any given player has shown a card to another
+:- dynamic cards_shown/2.
 
 % GAME SETUP
 
@@ -78,6 +79,7 @@ input_players(0).
 input_players(I) :-
     I > 0,
     asserta(player(I)),
+    asserta(cards_shown(I,0)),
     J is I - 1,
     input_players(J).
 
@@ -140,7 +142,7 @@ change_room :-
 record_suggestion_me :-
     (
         player_location(R),room(R) -> true;
-        write_ln('You can not make a suggestion because you are not in a room.'),nl,record_event    
+        write_ln('You can not make a suggestion because you are not in a room.'),nl,record_event
     ),
     write_ln('What suspect did you suggest?'),
     read(Suspect),
@@ -160,12 +162,12 @@ record_suggestion_me :-
         Shown = y -> record_shown_card;
         player_location(Room),player_num(Player),num_players(NumPlayers),
         record_no_one_else_showed_card(Player,Suspect,NumPlayers),
-        record_no_one_else_showed_card(Player,Weapon,NumPlayers),
-        record_no_one_else_showed_card(Player,Room,NumPlayers),
-        nl,record_event
+         record_no_one_else_showed_card(Player,Weapon,NumPlayers),
+         record_no_one_else_showed_card(Player,Room,NumPlayers),
+         nl, record_event
     ).
 
-record_shown_card :- 
+record_shown_card :-
     write_ln('What card was shown to you?'),
     read(Card),
     write_ln('What player showed you the card?'),
@@ -175,16 +177,73 @@ record_shown_card :-
         write_ln('Invalid card or player, please try again.'),nl,record_shown_card
     ).
 
-% TODO: Finish this
-record_suggestion_other :- record_event.
-%    write_ln('Which player number made the suggestion?'),
-%    read(PlayerNum),
-%    write_ln('What suspect was suggested?'),
-%    read(Suspect),
-%    write_ln('What weapon was suggested?'),
-%    read(Weapon),
-%    write_ln('What room was suggested?'),
-%    read(Room),
+% Records the results of the suggestion of another player
+record_suggestion_other :-
+    write_ln('Which player number made the suggestion?'),
+    read(Player),
+    (
+    is_another_player(Player)->true;
+    write_ln('Invalid player, please reenter suggestion'), nl, record_suggestion_other
+    ),
+    write_ln('What suspect was suggested?'),
+    read(Suspect),
+    (
+    character(Suspect)->true;
+    write_ln('Invalid suspect, please reenter suggestion'), nl, record_suggestion_other
+    ),
+    write_ln('What weapon was suggested?'),
+    read(Weapon),
+    (
+    weapon(Weapon)->true;
+    write_ln('Invalid weapon, please reenter suggestion'), nl, record_suggestion_other
+    ),
+    write_ln('What room was suggested?'),
+    read(Room),
+    (
+    room(Room)->true;
+    write_ln('Invalid room, please reenter suggestion'), nl, record_suggestion_other
+    ),
+    write_ln('Did someone show them a card? (y or n)'),
+    read(Shown),
+        (
+          Shown = y -> check_shown(Player, Suspect,Weapon,Room);
+          Shown = n ->num_players(NumPlayers),
+           record_no_one_else_showed_card(Player,Suspect,NumPlayers),
+           record_no_one_else_showed_card(Player,Weapon,NumPlayers),
+           record_no_one_else_showed_card(Player,Room,NumPlayers),
+           nl, record_event;
+          write_ln('Invalid input, please reenter suggestion'), nl, record_suggestion_other
+          
+        ).
+
+% If the suggestion of an opponent causes another player to show them a card		
+check_shown(Player, Suspect, Weapon, Room) :-
+        write_ln('Which player showed their card?'),
+        read(PlayerShowing),
+        (
+        is_another_player(PlayerShowing) -> record_shown_card_other(PlayerShowing,[Suspect,Weapon,Room]), nl, record_event;
+                write_ln('Invalid player entered, please try again.'), nl, check_shown(Player, Suspect, Weapon, Room)
+        ).
+
+% Records the results of another player showing an opponent a card		
+record_shown_card_other(_,[]).
+record_shown_card_other(Player,[Card|T]) :- inc_cards_shown(Player),
+    (
+        % Case 1: No rule exists yet about that player and card. Create it with integer 1
+        not(cardstatus(Card,Player,_)) -> assert(cardstatus(Card,Player,1));
+        % Case 2: Rule exists about that player and card, positive integer. Increment the integer
+        cardstatus(Card,Player,I),I > 0 -> increment(I,J), retract(cardstatus(Card,Player,I)),assert(cardstatus(Card,Player,J));
+        % Otherwise: The rule exists with a 0 or -1, don't do anything (yet)
+        true
+    ),
+    record_shown_card_other(Player,T).
+    
+% increments the total number of shown cards for a particular player
+inc_cards_shown(Player) :-
+  cards_shown(Player, X),
+  increment(X,Y),
+  retract(cards_shown(Player,X)),
+  assert(cards_shown(Player,Y)).
 
 receive_recommendation :-
     (
@@ -194,6 +253,7 @@ receive_recommendation :-
         write_ln('I do not have any recommendation at this time.'),nl,record_event
     ).
 
+% TODO: Make this easier to read by people who don't know prolog
 show_knowledge_base :-
     write_ln('Knowledge base:'),
     listing(cardstatus),
@@ -241,10 +301,12 @@ is_another_player(OtherPlayer) :- player(OtherPlayer),player_num(Player),not(Pla
 
 % Whether or not you should accuse, either if every card has been shown to you or if you have deduced by elimination
 should_accuse :-
-    count_solutions(cardstatus(_,_,0),Count1),Count1 = 3.
+    count_solutions(cardstatus(_,_,0),Count),Count = 3.
 
 
 % HELPER FUNCTIONS
+%increments X, outputs Y = X+1
+increment(X,Y):- Y is X+1.
 
 % Counts the number of solutions to a given predicate
 count_solutions(P,Count) :- findall(1,P,L),length(L,Count).
@@ -254,4 +316,3 @@ clear :- format('~c~s~c~s',[0x1b,"[H",0x1b,"[2J"]).
 
 % Logical exclusive-or
 xor(P1, P2) :- (P1,not(P2);P2,not(P1)),!.
-
