@@ -35,28 +35,6 @@ room(lounge).
 room(hall).
 room(study).
 
-card(mustard).
-card(scarlet).
-card(plum).
-card(green).
-card(white).
-card(peacock).
-card(rope).
-card(pipe).
-card(knife).
-card(wrench).
-card(candlestick).
-card(revolver).
-card(kitchen).
-card(ballcard).
-card(conservatory).
-card(dining).
-card(billiard).
-card(library).
-card(lounge).
-card(hall).
-card(study).
-
 
 % DYNAMIC RULES
 
@@ -209,7 +187,7 @@ record_shown_card :-
 
 % checks the knowledge base and deduces 	
 check_base(0).	
-check_base(NumPlayers) :- player_num(Player), card(Card),
+check_base(NumPlayers) :- player_num(Player), valid_card(Card),
 		NumPlayers >0,
 		(
 		cardstatus(NumPlayers,Card,X),X>0->checks_for_0s(Player, Card), check_for_alone(Player, Card);
@@ -279,7 +257,7 @@ check_shown(Player, Suspect, Weapon, Room) :-
         (
         is_another_player(PlayerShowing) -> record_shown_card_other(PlayerShowing,[Suspect,Weapon,Room]), num_players(NumPlayers), 
 				check_suggestion_with_base(PlayerShowing, Suspect,Weapon,Room, NumPlayers), check_base(NumPlayers), nl, record_event;
-		player_num(PlayerShowing)-> n1,record_event;
+		player_num(PlayerShowing)-> nl,record_event;
                 write_ln('Invalid player entered, please try again.'), nl, check_shown(Player, Suspect, Weapon, Room)
         ).
 
@@ -394,7 +372,7 @@ should_accuse :-
     ),
     Count = 3.
 
-% new
+% Check if a card has been deduced (no player can possibly have it)
 no_one_has(_,_,0).
 no_one_has(Card,Player,PlayerNum) :-
     PlayerNum > 0,
@@ -404,6 +382,20 @@ no_one_has(Card,Player,PlayerNum) :-
     ),
     NewPlayerNum is PlayerNum - 1,
     no_one_has(Card,Player,NewPlayerNum).
+
+% We want to suggest about cards that we are close to figuring out about
+% The card is one of two or three predicates about a player that has a positive integer
+best_suggest_by_count(Count) :-
+    cardstatus(Card,Player,I),
+    I > 0,
+    count_solutions(cardstatus(_,Player,I),Count),
+    player(Player),
+    write(Card).
+
+% Find the best suggestion. The only possibilities for Count are 2 and 3:
+%   2 because anything less would be deduced by check_base
+%   3 because a suggestion contains 3 cards
+best_suggest :- best_suggest_by_count(2);best_suggest_by_count(3).
 
 
 % HELPER FUNCTIONS
