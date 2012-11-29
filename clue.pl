@@ -111,13 +111,17 @@ input_starting_cards(Player) :-
 
 % Main menu - record knowledge we have acquired at any point in the game
 record_event :-
-    % Check first if there's enough information to make an accusation
+    % Check first if there's enough information to make an accusation or suggestion
     (
         should_accuse ->
             write_ln('You should make an accusation!'),nl,
             character(C),solution(C),write_ln(C),
             weapon(W),solution(W),write_ln(W),
             room(R),solution(R),write_ln(R),nl,nl;
+        best_suggest(Card) ->
+            write_ln('Next turn, you should make a suggestion containing the following:'),
+            write_ln(Card),
+            nl,nl;
         true
     ),
     write_ln('What would you like to do? (Enter the number of the choice you want)'),
@@ -385,17 +389,17 @@ no_one_has(Card,Player,PlayerNum) :-
 
 % We want to suggest about cards that we are close to figuring out about
 % The card is one of two or three predicates about a player that has a positive integer
-best_suggest_by_count(Count) :-
+best_suggest_by_count(Card,Count) :-
     cardstatus(Card,Player,I),
     I > 0,
     count_solutions(cardstatus(_,Player,I),Count),
-    player(Player),
-    write(Card).
+    player(Player).
 
-% Find the best suggestion. The only possibilities for Count are 2 and 3:
+% Find the best suggestion (we only want the first one in this strategy). The only possibilities for Count are 2 and 3:
 %   2 because anything less would be deduced by check_base
 %   3 because a suggestion contains 3 cards
-best_suggest :- best_suggest_by_count(2);best_suggest_by_count(3).
+best_suggest(Card) :-
+    (best_suggest_by_count(Card,2);best_suggest_by_count(Card,3)),!.
 
 
 % HELPER FUNCTIONS
