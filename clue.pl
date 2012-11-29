@@ -158,7 +158,11 @@ record_suggestion_me :-
     read(Shown),
     (
         Shown = y -> record_shown_card;
-        player_location(Room),record_no_one_has_cards([Suspect,Weapon,Room]),nl,record_event
+        player_location(Room),player_num(Player),num_players(NumPlayers),
+        record_no_one_else_showed_card(Player,Suspect,NumPlayers),
+        record_no_one_else_showed_card(Player,Weapon,NumPlayers),
+        record_no_one_else_showed_card(Player,Room,NumPlayers),
+        nl,record_event
     ).
 
 record_shown_card :- 
@@ -170,14 +174,6 @@ record_shown_card :-
         valid_card(Card),is_another_player(OtherPlayer) -> input_card(Card,OtherPlayer),nl,record_event;
         write_ln('Invalid card or player, please try again.'),nl,record_shown_card
     ).
-
-record_no_one_has_cards([]).
-record_no_one_has_cards([H|T]) :-
-    not(cardstatus(H,Player,0)),
-    retractall(cardstatus(H,Player,-1)), % remove duplicates
-    assert(cardstatus(H,Player,-1)),
-    record_no_one_has_cards(T).
-
 
 % TODO: Finish this
 record_suggestion_other :- record_event.
@@ -198,7 +194,6 @@ receive_recommendation :-
         write_ln('I do not have any recommendation at this time.'),nl,record_event
     ).
 
-% TODO: Make this easier to read by people who don't know prolog
 show_knowledge_base :-
     write_ln('Knowledge base:'),
     listing(cardstatus),
@@ -208,20 +203,45 @@ show_knowledge_base :-
 % CLUE FUNCTIONS
 
 % Record a card that you have actually seen
-% TODO: Also add cardstatus's with -1 to all the other players since they can't possibly have this card
+% Flag the player who showed it with a 0, and all others with -1
+% Remove any duplicate identical rules if necessary
 input_card(Card,Player) :-
+    retractall(cardstatus(Card,Player,0)),
     assert(cardstatus(Card,Player,0)),
-    
+    (
+        different_players(Player,OtherPlayer),
+        retractall(cardstatus(Card,OtherPlayer,-1)),
+        assert(cardstatus(Card,OtherPlayer,-1))
+    ).
+
+% Record when a suggestion was made and no one showed any of them to the suggester
+% Note that the suggester may have been bluffing
+% Remove any duplicate identical rules if necessary
+record_no_one_else_showed_card(_,_,0).
+record_no_one_else_showed_card(Suggester,Card,PlayerNum) :-
+    PlayerNum > 0,
+    (
+        not(PlayerNum = Suggester) ->
+            retractall(cardstatus(Card,PlayerNum,-1)),
+            assert(cardstatus(Card,PlayerNum,-1));
+        true
+    ),
+    NewPlayerNum is PlayerNum - 1,
+    record_no_one_else_showed_card(Suggester,Card,NewPlayerNum).
+
 
 % Determines if a card is valid character, weapon, or room
 valid_card(Card) :- character(Card);weapon(Card);room(Card).
+
+% Determines if two players are different
+different_players(Player, OtherPlayer) :- player(Player),player(OtherPlayer),not(Player=OtherPlayer).
 
 % Determines if a player is a valid player and not me
 is_another_player(OtherPlayer) :- player(OtherPlayer),player_num(Player),not(Player = OtherPlayer).
 
 % Whether or not you should accuse, either if every card has been shown to you or if you have deduced by elimination
 should_accuse :-
-    count_solutions(cardstatus(_,_,0),Count),Count = 3.
+    count_solutions(cardstatus(_,_,0),Count1),Count1 = 3.
 
 
 % HELPER FUNCTIONS
