@@ -158,7 +158,7 @@ change_room :-
         write_ln('Invalid room, please try again.'),nl,change_room
     ).
 
-% TODO: check if you suggested a card you already know about
+% Record a suggestion by me
 record_suggestion_me :-
     (
         player_location(R),room(R) -> true;
@@ -198,7 +198,7 @@ record_shown_card :-
         write_ln('Invalid card or player, please try again.'),nl,record_shown_card
     ).
 
-% checks the knowledge base and deduces 	
+% checks the knowledge base and deduces	
 check_base(0).	
 check_base(NumPlayers) :- player_num(Player), valid_card(Card),
 		NumPlayers >0,
