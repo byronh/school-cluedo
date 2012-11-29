@@ -84,9 +84,6 @@ card(study).
 % The solutions to the crime, if we are completely sure about it
 :- dynamic solution/1.
 
-% Tracks the cards in my hand
-:- dynamic in_hand/1.
-
 
 % GAME SETUP
 
@@ -130,10 +127,6 @@ input_starting_cards(Player) :-
         valid_card(Card) -> num_players(NumPlayers),assert(in_hand(Card)),input_card(Card,Player,NumPlayers),input_starting_cards(Player);
         write_ln('Invalid card, please try again.'),input_starting_cards(Player)
     ).
-
-%set_remaining_cardstatus(Player) :- weapon(X), character(Y), room(Z),
-%	(
-%	not(in_hand(X))->assert(cardstatus(Player,
 	
 	
 % MAIN LOOP
@@ -214,22 +207,27 @@ record_shown_card :-
         write_ln('Invalid card or player, please try again.'),nl,record_shown_card
     ).
 
+% checks the knowledge base and deduces 	
 check_base(0).	
-check_base(NumPlayers) :- player_num(Player), card(Card), write_ln('bla'),
+check_base(NumPlayers) :- player_num(Player), card(Card),
 		NumPlayers >0,
 		(
-		cardstatus(NumPlayers,Card,X),X>0-> check_for_0s(Player, Card), check_for_alone(Player, Card);
+		cardstatus(NumPlayers,Card,X),X>0->checks_for_0s(Player, Card), check_for_alone(Player, Card);
 		true
 		),
 		NewNumPlayers is NumPlayers-1, check_base(NewNumPlayers).
 
-check_for_0s(Player, Card) :- write_ln('blah'),
+%checks if someone else has the card
+%assures that player is marked as not having that card if we know that another player has it for sure
+check_for_0s(Player, Card) :-
 	(
 		cardstatus(Card,_,0)->retractall(cardstatus(Card,Player,_)),assert(cardstatus(Card,Player,-1));
 		true
 	).
 
-check_for_alone(Player, Card) :- write_ln('blahh'),retract(cardstatus(Card,Player,X)), X>0,
+%checks if player has only one positive integer cardstatus
+%if so it can be deduced that they must have this card, marks it as 0
+check_for_alone(Player, Card) :- retract(cardstatus(Card,Player,X)), X>0,
 	(	
 		not(cardstatus(_,Player,Y)),Y>0 -> assert(cardstatus(Card,Player,0));
 		true
@@ -279,14 +277,41 @@ check_shown(Player, Suspect, Weapon, Room) :-
         write_ln('Which player showed their card?'),
         read(PlayerShowing),
         (
-        is_another_player(PlayerShowing) -> record_shown_card_other(PlayerShowing,[Suspect,Weapon,Room]), num_players(NumPlayers), check_base(NumPlayers), nl, record_event;
+        is_another_player(PlayerShowing) -> record_shown_card_other(PlayerShowing,[Suspect,Weapon,Room]), num_players(NumPlayers), 
+				check_suggestion_with_base(PlayerShowing, Suspect,Weapon,Room, NumPlayers), check_base(NumPlayers), nl, record_event;
 		player_num(PlayerShowing)-> n1,record_event;
                 write_ln('Invalid player entered, please try again.'), nl, check_shown(Player, Suspect, Weapon, Room)
         ).
 
+% Brings suggestion to knowledge base to see if anything can be deduced		
+check_suggestion_with_base(Player, Suspect, Weapon, Room,NumPlayers) :- 
+		check_suggestion_neg1s(Player, Suspect, Weapon, Room, NumPlayers), 
+		check_suggestion_0s(Player, Suspect, Weapon, Room, NumPlayers).
+
+% Checks if the player showing cards is known to not have two of the three suggested cards
+% sets third card to 0 if this is the case, marking down that we know this player has that card		
+check_suggestion_neg1s(Player, Suspect, Weapon, Room, NumPlayers) :- 
+			( 				
+				cardstatus(Suspect, Player, -1), cardstatus(Weapon, Player, -1) -> retractall(cardstatus(Room, Player,_)),input_card(Room, Player,NumPlayers);
+				cardstatus(Suspect, Player, -1), cardstatus(Room, Player, -1) -> retractall(cardstatus(Weapon, Player,_)),input_card(Weapon, Player,NumPlayers);
+				cardstatus(Room, Player, -1), cardstatus(Weapon, Player, -1) -> retractall(cardstatus(Suspect, Player,_)),input_card(Suspect, Player, NumPlayers);
+				true
+			).
+
+% Checks if any other players are known to be in posession of two of the three suggested cards
+% if so, marks the third card as known to be in the players hand who is showing			
+check_suggestion_0s(Player, Suspect, Weapon, Room, NumPlayers) :- 
+		(	
+			cardstatus(Suspect,X , 0), cardstatus(Weapon, Y, 0), not(X=Player),not(Y=Player) -> retractall(cardstatus(Room, Player,__)), input_card(Room, Player,NumPlayers);
+			cardstatus(Suspect,X , 0), cardstatus(Room, Y, 0), not(X=Player), not(Y=Player) -> retractall(cardstatus(Weapon, Player,_)), input_card(Weapon, Player,NumPlayers);
+			cardstatus(Room,X , 0), cardstatus(Weapon, Y, 0), not(X=Player), not(Y=Player) -> retractall(cardstatus(Suspect, Player,_)), input_card(Suspect, Player,NumPlayers);
+			true
+		).
+			
+				
 % Records the results of another player showing an opponent a card
 record_shown_card_other(_,[]).
-record_shown_card_other(Player,[Card|T]) :- inc_cards_shown(Player),
+record_shown_card_other(Player, [Card|T]) :- inc_cards_shown(Player),
     (
         % Case 1: No rule exists yet about that player and card. Create it with integer 1
         not(cardstatus(Card,Player,_)) -> assert(cardstatus(Card,Player,1));
@@ -319,7 +344,7 @@ show_knowledge_base :-
 input_card(_,_,0).
 input_card(Card,Player,PlayerNum) :-
     PlayerNum > 0,
-    retractall(cardstatus(Card,PlayerNum,_)),
+    retractall(cardstatus(Card,Player,_)),
     assert(cardstatus(Card,Player,0)),
     (
         not(PlayerNum = Player) ->
