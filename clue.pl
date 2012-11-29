@@ -59,6 +59,10 @@ room(study).
 % Records how many times any given player has shown a card to another
 :- dynamic cards_shown/2.
 
+% The solutions to the crime, if we are completely sure about it
+:- dynamic solution/1.
+
+
 % GAME SETUP
 
 % Input the number of players
@@ -98,7 +102,7 @@ input_starting_cards(Player) :-
     read(Card),
     (
         Card = done -> nl, record_event;
-        valid_card(Card) -> input_card(Card,Player),input_starting_cards(Player);
+        valid_card(Card) -> num_players(NumPlayers),input_card(Card,Player,NumPlayers),input_starting_cards(Player);
         write_ln('Invalid card, please try again.'),input_starting_cards(Player)
     ).
 
@@ -162,9 +166,9 @@ record_suggestion_me :-
         Shown = y -> record_shown_card;
         player_location(Room),player_num(Player),num_players(NumPlayers),
         record_no_one_else_showed_card(Player,Suspect,NumPlayers),
-         record_no_one_else_showed_card(Player,Weapon,NumPlayers),
-         record_no_one_else_showed_card(Player,Room,NumPlayers),
-         nl, record_event
+        record_no_one_else_showed_card(Player,Weapon,NumPlayers),
+        record_no_one_else_showed_card(Player,Room,NumPlayers),
+        nl, record_event
     ).
 
 record_shown_card :-
@@ -173,7 +177,8 @@ record_shown_card :-
     write_ln('What player showed you the card?'),
     read(OtherPlayer),
     (
-        valid_card(Card),is_another_player(OtherPlayer) -> input_card(Card,OtherPlayer),nl,record_event;
+        valid_card(Card),is_another_player(OtherPlayer) ->
+            num_players(NumPlayers),input_card(Card,OtherPlayer,NumPlayers),nl,record_event;
         write_ln('Invalid card or player, please try again.'),nl,record_shown_card
     ).
 
@@ -248,12 +253,12 @@ inc_cards_shown(Player) :-
 receive_recommendation :-
     (
         should_accuse ->
-            % TODO: print out the 3 remaining possibilities
-            write_ln('You should make an accusation!'),nl,record_event;
-        write_ln('I do not have any recommendation at this time.'),nl,record_event
+            write_ln('You should make an accusation!'),nl,
+            listing(solution(_)),nl,nl,
+            record_event;
+        write_ln('You don\'t have enough information to make an accusation yet.'),nl,record_event
     ).
 
-% TODO: Make this easier to read by people who don't know prolog
 show_knowledge_base :-
     write_ln('Knowledge base:'),
     listing(cardstatus),
@@ -265,14 +270,19 @@ show_knowledge_base :-
 % Record a card that you have actually seen
 % Flag the player who showed it with a 0, and all others with -1
 % Remove any duplicate identical rules if necessary
-input_card(Card,Player) :-
+input_card(_,_,0).
+input_card(Card,Player,PlayerNum) :-
+    PlayerNum > 0,
     retractall(cardstatus(Card,Player,0)),
     assert(cardstatus(Card,Player,0)),
     (
-        different_players(Player,OtherPlayer),
-        retractall(cardstatus(Card,OtherPlayer,-1)),
-        assert(cardstatus(Card,OtherPlayer,-1))
-    ).
+        not(PlayerNum = Player) ->
+            retractall(cardstatus(Card,PlayerNum,-1)),
+            assert(cardstatus(Card,PlayerNum,-1));
+        true
+    ),
+    NewPlayerNum is PlayerNum - 1,
+    input_card(Card,Player,NewPlayerNum).
 
 % Record when a suggestion was made and no one showed any of them to the suggester
 % Note that the suggester may have been bluffing
@@ -299,13 +309,27 @@ different_players(Player, OtherPlayer) :- player(Player),player(OtherPlayer),not
 % Determines if a player is a valid player and not me
 is_another_player(OtherPlayer) :- player(OtherPlayer),player_num(Player),not(Player = OtherPlayer).
 
-% Whether or not you should accuse, either if every card has been shown to you or if you have deduced by elimination
+% Whether or not you should accuse (deduced by elimination)
 should_accuse :-
-    count_solutions(cardstatus(_,_,0),Count),Count = 3.
+    count_solutions(
+        (
+            valid_card(Card),
+            no_one_has(Card),
+            assert(solution(Card))
+        ),
+        Count
+    ),
+    Count = 3.
+
+no_one_has(Card) :-
+    num_players(NumPlayers),
+    count_solutions(cardstatus(Card,_,-1),Count),
+    Count = NumPlayers.
 
 
 % HELPER FUNCTIONS
-%increments X, outputs Y = X+1
+
+% Increments X, outputs Y = X+1
 increment(X,Y):- Y is X+1.
 
 % Counts the number of solutions to a given predicate
