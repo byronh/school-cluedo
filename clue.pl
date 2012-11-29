@@ -20,7 +20,7 @@ character(scarlet).
 
 weapon(rope).
 weapon(pipe).
-%weapon(knife).
+weapon(knife).
 %weapon(wrench).
 %weapon(candlestick).
 %weapon(revolver).
@@ -268,13 +268,11 @@ show_knowledge_base :-
 input_card(_,_,0).
 input_card(Card,Player,PlayerNum) :-
     PlayerNum > 0,
-    retractall(cardstatus(Card,Player,0)),
-    retractall(cardstatus(Card,Player,-1)),
+    retractall(cardstatus(Card,Player,_)),
     assert(cardstatus(Card,Player,0)),
     (
         not(PlayerNum = Player) ->
-            retractall(cardstatus(Card,PlayerNum,0)),
-            retractall(cardstatus(Card,PlayerNum,-1)),
+            retractall(cardstatus(Card,PlayerNum,_)),
             assert(cardstatus(Card,PlayerNum,-1));
         true
     ),
@@ -289,8 +287,7 @@ record_no_one_else_showed_card(Suggester,Card,PlayerNum) :-
     PlayerNum > 0,
     (
         not(PlayerNum = Suggester) ->
-            retractall(cardstatus(Card,PlayerNum,0)),
-            retractall(cardstatus(Card,PlayerNum,-1)),
+            retractall(cardstatus(Card,PlayerNum,_)),
             assert(cardstatus(Card,PlayerNum,-1));
         true
     ),
@@ -321,7 +318,7 @@ should_accuse :-
     ),
     Count = 3.
 
-% new
+% Check if a card has been deduced (no player can possibly have it)
 no_one_has(_,_,0).
 no_one_has(Card,Player,PlayerNum) :-
     PlayerNum > 0,
